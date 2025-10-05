@@ -21,6 +21,28 @@ export default function DashboardPage() {
   const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
   const router = useRouter();
 
+  // Projeleri organizasyona göre grupla
+  const groupProjectsByOrganization = () => {
+    const grouped: { [key: string]: { organization: any; projects: any[] } } = {};
+    
+    projects.forEach(project => {
+      const orgId = project.organization_id;
+      
+      // Organizasyon bilgisini organizations array'inden bul
+      const organization = organizations.find(org => org.id === orgId);
+      
+      if (!grouped[orgId]) {
+        grouped[orgId] = {
+          organization: organization || { id: orgId, name: "Bilinmeyen Organizasyon" },
+          projects: []
+        };
+      }
+      grouped[orgId].projects.push(project);
+    });
+    
+    return Object.values(grouped);
+  };
+
   // Kullanıcının verilerini yükle
   const loadUserData = async (userId: string) => {
     try {
@@ -81,7 +103,7 @@ export default function DashboardPage() {
   // Projeleri ve görevleri yükle
   const loadProjectsAndTasks = async (organizationIds: string[]) => {
     try {
-      // Projeleri getir
+      // Projeleri getir (organizasyon bilgisi manuel olarak eşleştirilecek)
       const { data: projectsData, error: projectsError } = await supabase
         .from("projects")
         .select("*")
@@ -393,7 +415,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Projeler - Sadece organizasyon varsa göster */}
+          {/* Projeler - Organizasyona göre gruplu */}
           {organizations.length > 0 && (
             <div className="bg-white shadow rounded-lg">
               <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -402,7 +424,7 @@ export default function DashboardPage() {
                     Projeler
                   </h2>
                   <p className="text-sm text-gray-600">
-                    Projelerinizi takip edin
+                    Organizasyonlara göre gruplandırılmış projeleriniz
                   </p>
                 </div>
                 <button
@@ -455,18 +477,101 @@ export default function DashboardPage() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {projects.map((project) => (
-                      <div
-                        key={project.id}
-                        className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                      >
-                        <h3 className="font-semibold text-gray-900">
-                          {project.name}
-                        </h3>
-                        <p className="text-sm text-gray-600">
-                          {project.description || "Açıklama yok"}
-                        </p>
+                  <div className="space-y-6">
+                    {groupProjectsByOrganization().map((group) => (
+                      <div key={group.organization.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        {/* Organizasyon Başlığı */}
+                        <div className="bg-gradient-to-r from-green-50 to-blue-50 px-4 py-3 border-b border-gray-200">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-shrink-0">
+                                <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
+                                  <svg
+                                    className="w-4 h-4 text-white"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H5m4 0v-6a2 2 0 012-2h2a2 2 0 012 2v6"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div>
+                                <h3 className="text-lg font-semibold text-gray-900">
+                                  {group.organization.name}
+                                </h3>
+                                <p className="text-sm text-gray-600">
+                                  {group.projects.length} proje
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {group.projects.length} / ∞
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Projeler Grid */}
+                        <div className="p-4">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {group.projects.map((project) => (
+                              <div
+                                key={project.id}
+                                className="group relative bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-green-300 hover:shadow-lg transition-all duration-200 cursor-pointer"
+                              >
+                                {/* Proje İkonu */}
+                                <div className="absolute top-4 right-4">
+                                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
+                                    <svg
+                                      className="w-4 h-4 text-green-600"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                                      />
+                                    </svg>
+                                  </div>
+                                </div>
+
+                                {/* Proje Bilgileri */}
+                                <div className="pr-12">
+                                  <h4 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-green-700 transition-colors">
+                                    {project.name}
+                                  </h4>
+                                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                                    {project.description || "Bu proje için henüz açıklama eklenmemiş."}
+                                  </p>
+
+                                  {/* Alt Bilgiler */}
+                                  <div className="flex items-center justify-between text-xs text-gray-500">
+                                    <span className="flex items-center space-x-1">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      </svg>
+                                      <span>{new Date(project.created_at).toLocaleDateString("tr-TR")}</span>
+                                    </span>
+                                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full">
+                                      Aktif
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Hover Efekti */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-blue-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
