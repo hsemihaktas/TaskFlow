@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 interface TaskAssignment {
   user_id: string;
   full_name: string;
   assigned_at: string;
   assigned_by: string;
+  avatar_url?: string;
 }
 
 interface Task {
@@ -29,6 +31,7 @@ interface TaskCardProps {
   canEdit: boolean;
   onTaskClick: (task: Task) => void;
   currentUserId?: string;
+  onRefresh?: () => void;
 }
 
 export default function TaskCard({
@@ -37,6 +40,7 @@ export default function TaskCard({
   canEdit,
   onTaskClick,
   currentUserId,
+  onRefresh,
 }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -51,10 +55,48 @@ export default function TaskCard({
     );
   };
 
+  // Database'de gerçek assignment durumunu kontrol et
+  const checkAssignmentInDB = async () => {
+    if (!currentUserId || canEdit) return true; // Admin/owner için gerekli değil
+
+    try {
+      const { data, error } = await supabase
+        .from("task_assignments")
+        .select("assigned_to")
+        .eq("task_id", task.id)
+        .eq("assigned_to", currentUserId)
+        .single();
+
+      if (error && error.code !== "PGRST116") {
+        // PGRST116 = no rows returned (assignment yok)
+        console.error("Assignment kontrol hatası:", error);
+        return false;
+      }
+
+      return !!data; // Assignment varsa true, yoksa false
+    } catch (error) {
+      console.error("Database kontrol hatası:", error);
+      return false;
+    }
+  };
+
   // Drag & Drop olayları
-  const handleDragStart = (e: React.DragEvent) => {
+  const handleDragStart = async (e: React.DragEvent) => {
     if (!canDrag()) {
       e.preventDefault();
+      return;
+    }
+
+    // Database'de gerçek durumu kontrol et
+    const isAssignedInDB = await checkAssignmentInDB();
+
+    if (!isAssignedInDB) {
+      e.preventDefault();
+
+      // Sayfayı sessizce yenile
+      if (onRefresh) {
+        onRefresh();
+      }
       return;
     }
 

@@ -23,6 +23,7 @@ interface TaskAssignment {
   full_name: string;
   assigned_at: string;
   assigned_by: string;
+  avatar_url?: string;
 }
 
 interface Task {
@@ -163,6 +164,21 @@ export default function ProjectPage() {
   const updateTaskStatus = useCallback(
     async (taskId: string, newStatus: "todo" | "in_progress" | "done") => {
       try {
+        // Kullanıcının bu task'ı güncellemek için yetkisi var mı kontrol et
+        if (!canManageTasks()) {
+          // Admin/owner değilse, assigned mı kontrol et
+          const task = tasks.find((t) => t.id === taskId);
+          if (
+            !task ||
+            !user?.id ||
+            !task.assignments?.some((a) => a.user_id === user.id)
+          ) {
+            console.log("Yetki yok, task'ları yeniden yükleniyor...");
+            reloadTasks();
+            return { success: false, error: "Bu işlem için yetkiniz yok" };
+          }
+        }
+
         const { error } = await supabase
           .from("tasks")
           .update({ status: newStatus })
@@ -182,10 +198,23 @@ export default function ProjectPage() {
         return { success: true };
       } catch (error: any) {
         console.error("Görev durumu güncellenirken hata:", error);
-        return { success: false, error: error.message };
+        console.error("Error details:", {
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+        });
+
+        // Task'ları yeniden yükle
+        reloadTasks();
+
+        return {
+          success: false,
+          error: error?.message || "Görev güncellenirken bir hata oluştu",
+        };
       }
     },
-    []
+    [tasks, user?.id, userRole]
   );
 
   // Yetki kontrolü
@@ -230,7 +259,7 @@ export default function ProjectPage() {
   // Görev güncelle (detay panelinden)
   const handleTaskUpdate = useCallback(
     async (taskId: string, updates: Partial<Task>) => {
-      // Normal güncellemelerde local state'i güncelle
+      // Tüm güncellemeleri (assignments dahil) local state'e uygula
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, ...updates } : task
@@ -239,22 +268,10 @@ export default function ProjectPage() {
 
       // Seçili task'ı da güncelle
       if (selectedTask && selectedTask.id === taskId) {
-        if (
-          updates.assignments !== undefined &&
-          Array.isArray(updates.assignments) &&
-          updates.assignments.length === 0
-        ) {
-          // Assignments değiştiyse task'ı yeniden yükle
-          const updatedTask = tasks.find((t) => t.id === taskId);
-          if (updatedTask) {
-            setSelectedTask({ ...updatedTask, ...updates });
-          }
-        } else {
-          setSelectedTask((prev) => (prev ? { ...prev, ...updates } : null));
-        }
+        setSelectedTask({ ...selectedTask, ...updates });
       }
     },
-    [selectedTask, tasks, reloadTasks]
+    [selectedTask]
   );
 
   useEffect(() => {
@@ -288,6 +305,20 @@ export default function ProjectPage() {
 
     getUser();
   }, [projectId, router]);
+
+  // Düzenli data polling - her 15 saniyede bir güncelle
+  useEffect(() => {
+    if (!user?.id || loading) return;
+
+    const pollInterval = setInterval(() => {
+      console.log("🔄 Task verilerini güncelleniyor...");
+      reloadTasks();
+    }, 5000); // 5 saniye
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [user?.id, loading, reloadTasks]);
 
   if (loading) {
     return (
@@ -440,6 +471,7 @@ export default function ProjectPage() {
                     canEdit={canManageTasks()}
                     onTaskClick={handleTaskClick}
                     currentUserId={user?.id}
+                    onRefresh={reloadTasks}
                   />
                 ))}
                 {getTasksByStatus("todo").length === 0 && (
@@ -493,6 +525,7 @@ export default function ProjectPage() {
                     canEdit={canManageTasks()}
                     onTaskClick={handleTaskClick}
                     currentUserId={user?.id}
+                    onRefresh={reloadTasks}
                   />
                 ))}
                 {getTasksByStatus("in_progress").length === 0 && (
@@ -546,6 +579,7 @@ export default function ProjectPage() {
                     canEdit={canManageTasks()}
                     onTaskClick={handleTaskClick}
                     currentUserId={user?.id}
+                    onRefresh={reloadTasks}
                   />
                 ))}
                 {getTasksByStatus("done").length === 0 && (
@@ -588,6 +622,7 @@ export default function ProjectPage() {
         onTaskUpdate={handleTaskUpdate}
         canEdit={canManageTasks()}
         currentUserId={user?.id}
+        userRole={userRole as "owner" | "admin" | "member"}
       />
     </div>
   );

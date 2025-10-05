@@ -8,6 +8,7 @@ interface TaskAssignment {
   full_name: string;
   assigned_at: string;
   assigned_by: string;
+  avatar_url?: string;
 }
 
 interface Task {
@@ -29,6 +30,7 @@ interface TaskDetailPanelProps {
   onTaskUpdate: (taskId: string, updates: Partial<Task>) => void;
   canEdit: boolean;
   currentUserId?: string;
+  userRole?: "owner" | "admin" | "member";
 }
 
 export default function TaskDetailPanel({
@@ -38,6 +40,7 @@ export default function TaskDetailPanel({
   onTaskUpdate,
   canEdit,
   currentUserId,
+  userRole,
 }: TaskDetailPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState("");
@@ -57,10 +60,27 @@ export default function TaskDetailPanel({
       setEditedDescription(task.description || "");
       setEditedStatus(task.status);
       loadCreatorInfo(task.created_by);
-      // Her zaman task'ın güncel assignments'ını kullan
-      setAssignments(task.assignments || []);
+      // Assignment verilerini avatar ile birlikte yükle
+      loadTaskAssignments(task.id);
     }
   }, [task]);
+
+  // Panel açıkken assignments'ları düzenli güncelle
+  useEffect(() => {
+    if (!isOpen || !task) return;
+
+    // Panel açılır açılmaz hemen yükle
+    loadTaskAssignments(task.id);
+
+    const pollInterval = setInterval(() => {
+      console.log("📋 Assignment verilerini güncelleniyor...");
+      loadTaskAssignments(task.id);
+    }, 10000); // 10 saniye
+
+    return () => {
+      clearInterval(pollInterval);
+    };
+  }, [isOpen, task?.id]);
 
   // Görev oluşturanın bilgisini getir
   const loadCreatorInfo = async (userId: string) => {
@@ -93,7 +113,8 @@ export default function TaskDetailPanel({
           assigned_at,
           assigned_by,
           profiles!assigned_to (
-            full_name
+            full_name,
+            avatar_url
           )
         `
         )
@@ -106,6 +127,7 @@ export default function TaskDetailPanel({
             full_name: item.profiles?.full_name || "Bilinmeyen Kullanıcı",
             assigned_at: item.assigned_at,
             assigned_by: item.assigned_by,
+            avatar_url: item.profiles?.avatar_url || null,
           })
         );
         setAssignments(formattedAssignments);
@@ -221,6 +243,53 @@ export default function TaskDetailPanel({
     } finally {
       setIsAssigning(false);
     }
+  };
+
+  // Başka kullanıcıyı görevden çıkar (admin/owner için)
+  const handleUnassignUser = async (userId: string) => {
+    if (!task || !currentUserId) return;
+
+    setIsAssigning(true);
+    try {
+      const { error } = await supabase
+        .from("task_assignments")
+        .delete()
+        .eq("task_id", task.id)
+        .eq("assigned_to", userId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Assignments'ları yeniden yükle
+      const updatedAssignments = await loadTaskAssignments(task.id);
+
+      // Parent component'e güncel assignments bilgisini gönder
+      onTaskUpdate(task.id, { assignments: updatedAssignments });
+    } catch (error) {
+      console.error("Kullanıcı çıkarma hatası:", error);
+      alert("Kullanıcı çıkarılamadı. Lütfen tekrar deneyin.");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  // Kullanıcıyı çıkarma yetkisi kontrolü
+  const canRemoveUser = (assignedUserId: string): boolean => {
+    if (!userRole || !currentUserId) return false;
+
+    // Kendini herkes çıkarabilir
+    if (assignedUserId === currentUserId) return true;
+
+    // Owner herkes çıkarabilir (kendisi hariç, ama o zaten üstte kontrol edildi)
+    if (userRole === "owner") return true;
+
+    // Admin owner'ı çıkaramaz, ama diğer admin ve member'ları çıkarabilir
+    // Bu kontrol için assigned user'ın role'ünü bilmemiz gerekir
+    // Şimdilik admin'ler de çıkarabilsin, gelecekte daha detaylı kontrol ekleriz
+    if (userRole === "admin") return true;
+
+    return false;
   };
 
   // Durum rengi ve adını al
@@ -404,7 +473,26 @@ export default function TaskDetailPanel({
                           className="flex items-center justify-between bg-gray-50 p-2 rounded-lg"
                         >
                           <div className="flex items-center space-x-2">
-                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                            {assignment.avatar_url ? (
+                              <img
+                                src={assignment.avatar_url}
+                                alt={assignment.full_name}
+                                className="w-6 h-6 rounded-full object-cover"
+                                onError={(e) => {
+                                  // Avatar yüklenemezse fallback göster
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = "none";
+                                  target.nextElementSibling?.classList.remove(
+                                    "hidden"
+                                  );
+                                }}
+                              />
+                            ) : null}
+                            <div
+                              className={`w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-medium ${
+                                assignment.avatar_url ? "hidden" : ""
+                              }`}
+                            >
                               {assignment.full_name.charAt(0)}
                             </div>
                             <span className="text-sm text-gray-900">
@@ -417,13 +505,19 @@ export default function TaskDetailPanel({
                                 assignment.assigned_at
                               ).toLocaleDateString("tr-TR")}
                             </span>
-                            {assignment.user_id === currentUserId && (
+                            {canRemoveUser(assignment.user_id) && (
                               <button
-                                onClick={handleUnassignSelf}
+                                onClick={() =>
+                                  assignment.user_id === currentUserId
+                                    ? handleUnassignSelf()
+                                    : handleUnassignUser(assignment.user_id)
+                                }
                                 disabled={isAssigning}
                                 className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors"
                               >
-                                Çık
+                                {assignment.user_id === currentUserId
+                                  ? "Çık"
+                                  : "Çıkar"}
                               </button>
                             )}
                           </div>
