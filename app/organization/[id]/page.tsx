@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import InviteMemberModal from "@/components/organization/InviteMemberModal";
+import MemberManagementModal from "@/components/dashboard/MemberManagementModal";
 
 interface Organization {
   id: string;
@@ -28,7 +29,7 @@ interface Member {
 interface Project {
   id: string;
   name: string;
-  description: string;
+  description?: string;
   created_at: string;
   created_by: string;
 }
@@ -56,6 +57,8 @@ export default function OrganizationPage() {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string>("");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [updatingMember, setUpdatingMember] = useState<string | null>(null);
 
   // Organizasyon verilerini yükle
   const loadOrganizationData = async (userId: string) => {
@@ -349,6 +352,73 @@ export default function OrganizationPage() {
     }
   };
 
+  // Üye rolünü güncelle
+  const updateMemberRole = async (memberId: string, newRole: string) => {
+    if (!canUpdateMemberRole(memberId, newRole)) {
+      alert("Bu işlem için yetkiniz bulunmamaktadır.");
+      return;
+    }
+
+    setUpdatingMember(memberId);
+
+    try {
+      const { error } = await supabase
+        .from("memberships")
+        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .eq("id", memberId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Üye listesini yenile
+      if (user?.id) {
+        await loadOrganizationData(user.id);
+      }
+
+      alert(
+        `Üye rolü başarıyla ${
+          newRole === "owner"
+            ? "Sahip"
+            : newRole === "admin"
+            ? "Yönetici"
+            : "Üye"
+        } olarak güncellendi.`
+      );
+    } catch (error) {
+      console.error("Rol güncelleme hatası:", error);
+      alert("Rol güncellenirken bir hata oluştu.");
+    } finally {
+      setUpdatingMember(null);
+    }
+  };
+
+  // Rol güncelleme yetkisi kontrolü
+  const canUpdateMemberRole = (memberId: string, newRole: string) => {
+    const targetMember = members.find((m) => m.id === memberId);
+    if (!targetMember) return false;
+
+    // Sadece owner ve admin rol değiştirebilir
+    if (userRole !== "owner" && userRole !== "admin") return false;
+
+    // Admin, başka admin'lerin rolünü değiştiremez
+    if (userRole === "admin" && targetMember.role === "admin") return false;
+
+    // Admin, owner'ın rolünü değiştiremez
+    if (userRole === "admin" && targetMember.role === "owner") return false;
+
+    // Admin, birini owner yapamaz
+    if (userRole === "admin" && newRole === "owner") return false;
+
+    // Hiç kimse (owner dahil) başka birini owner yapamaz - organizasyonda sadece bir owner olmalı
+    if (newRole === "owner") return false;
+
+    // Kullanıcı kendi rolünü değiştiremez
+    if (targetMember.user_id === user?.id) return false;
+
+    return true;
+  };
+
   useEffect(() => {
     const getUser = async () => {
       const {
@@ -596,10 +666,18 @@ export default function OrganizationPage() {
 
           {/* Üyeler */}
           <div className="bg-white shadow rounded-lg">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h2 className="text-xl font-semibold text-gray-900">
                 Organizasyon Üyeleri
               </h2>
+              {(userRole === "owner" || userRole === "admin") && (
+                <button
+                  onClick={() => setShowMembersModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  Tümünü Gör
+                </button>
+              )}
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -836,6 +914,18 @@ export default function OrganizationPage() {
         <InviteMemberModal
           onClose={() => setShowInviteModal(false)}
           onInvite={inviteMember}
+        />
+      )}
+
+      {/* Üye Yönetimi Modalı */}
+      {showMembersModal && (
+        <MemberManagementModal
+          members={members}
+          currentUserRole={userRole}
+          currentUserId={user?.id}
+          onClose={() => setShowMembersModal(false)}
+          onUpdateRole={updateMemberRole}
+          updatingMember={updatingMember}
         />
       )}
     </div>
