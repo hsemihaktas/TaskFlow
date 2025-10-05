@@ -8,14 +8,15 @@ import Navbar from "@/components/Navbar";
 import CreateOrganizationModal from "@/components/dashboard/CreateOrganizationModal";
 import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { Profile, Organization, Project, Task, Membership } from "@/types";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [organizations, setOrganizations] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [memberships, setMemberships] = useState<any[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
@@ -53,8 +54,9 @@ export default function DashboardPage() {
 
   // Projeleri organizasyona göre grupla
   const groupProjectsByOrganization = () => {
-    const grouped: { [key: string]: { organization: any; projects: any[] } } =
-      {};
+    const grouped: {
+      [key: string]: { organization: Organization; projects: Project[] };
+    } = {};
 
     projects.forEach((project) => {
       const orgId = project.organization_id;
@@ -64,10 +66,14 @@ export default function DashboardPage() {
 
       if (!grouped[orgId]) {
         grouped[orgId] = {
-          organization: organization || {
-            id: orgId,
-            name: "Bilinmeyen Organizasyon",
-          },
+          organization:
+            organization ||
+            ({
+              id: orgId,
+              name: "Bilinmeyen Organizasyon",
+              created_by: "",
+              created_at: new Date().toISOString(),
+            } as Organization),
           projects: [],
         };
       }
@@ -81,7 +87,6 @@ export default function DashboardPage() {
   const loadUserData = async (userId: string) => {
     try {
       // Önce tabloların varlığını test et
-      console.log("Tabloları kontrol ediyor...");
 
       // Basit bir test query'si
       const { data: testData, error: testError } = await supabase
@@ -98,11 +103,11 @@ export default function DashboardPage() {
       // Kullanıcının üyesi olduğu organizasyonları ve rol bilgilerini getir
       const { data: userMemberships, error: membershipError } = await supabase
         .from("memberships")
-        .select("organization_id, role")
+        .select("id, user_id, organization_id, role, created_at, updated_at")
         .eq("user_id", userId);
 
       if (!membershipError && userMemberships) {
-        setMemberships(userMemberships);
+        setMemberships(userMemberships as Membership[]);
       }
 
       const { data: userOrgs, error: orgsError } = await supabase
@@ -129,13 +134,16 @@ export default function DashboardPage() {
         // Hata durumunda boş array set et
         setOrganizations([]);
       } else {
-        const organizations =
-          userOrgs?.map((item: any) => item.organizations) || [];
+        const organizations = (userOrgs
+          ?.map((item: any) => item.organizations)
+          .flat() || []) as Organization[];
         setOrganizations(organizations);
 
         // Eğer organizasyon varsa, projelerini de getir
         if (organizations.length > 0) {
-          await loadProjectsAndTasks(organizations.map((org: any) => org.id));
+          await loadProjectsAndTasks(
+            organizations.map((org: Organization) => org.id)
+          );
         }
       }
     } catch (error) {
@@ -159,7 +167,7 @@ export default function DashboardPage() {
 
         // Eğer proje varsa, görevleri de getir
         if (projectsData && projectsData.length > 0) {
-          const projectIds = projectsData.map((project: any) => project.id);
+          const projectIds = projectsData.map((project: Project) => project.id);
 
           const { data: tasksData, error: tasksError } = await supabase
             .from("tasks")
@@ -213,9 +221,12 @@ export default function DashboardPage() {
       setShowCreateOrgModal(false);
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error("Organizasyon oluşturma hatası:", error);
-      return { success: false, error: error.message || "Bilinmeyen hata" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      };
     }
   };
 
@@ -246,15 +257,20 @@ export default function DashboardPage() {
 
       // Verileri yeniden yükle
       if (organizations.length > 0) {
-        await loadProjectsAndTasks(organizations.map((org: any) => org.id));
+        await loadProjectsAndTasks(
+          organizations.map((org: Organization) => org.id)
+        );
       }
 
       setShowCreateProjectModal(false);
 
       return { success: true };
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error("Proje oluşturma hatası:", error);
-      return { success: false, error: error.message || "Bilinmeyen hata" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      };
     }
   };
 
@@ -321,9 +337,12 @@ export default function DashboardPage() {
       }
 
       resolve({ success: true });
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error("Proje silme hatası:", error);
-      resolve({ success: false, error: error.message || "Bilinmeyen hata" });
+      resolve({
+        success: false,
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      });
     } finally {
       setLoading(false);
     }
@@ -353,12 +372,22 @@ export default function DashboardPage() {
       if (error && error.code !== "PGRST116") {
         console.error("Profil getirilirken hata:", error);
         // Hata varsa boş profil oluştur
-        setProfile({ id: user.id, full_name: "", avatar_url: "" });
+        setProfile({
+          id: user.id,
+          full_name: "",
+          avatar_url: "",
+          created_at: new Date().toISOString(),
+        });
       } else if (profile) {
         setProfile(profile);
       } else {
         // Profil yoksa boş profil oluştur
-        setProfile({ id: user.id, full_name: "", avatar_url: "" });
+        setProfile({
+          id: user.id,
+          full_name: "",
+          avatar_url: "",
+          created_at: new Date().toISOString(),
+        });
       }
 
       // Kullanıcının organizasyonlarını yükle

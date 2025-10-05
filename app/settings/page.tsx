@@ -172,7 +172,6 @@ export default function SettingsPage() {
       // Resmi sıkıştır
       file = await compressImage(file);
 
-      console.log("Sıkıştırılmış dosya boyutu:", file.size);
       const fileExt = file.name.split(".").pop();
       const fileName = `${user?.id}/avatar-${Date.now()}.${fileExt}`;
 
@@ -189,7 +188,6 @@ export default function SettingsPage() {
             const filesToDelete = existingFiles.map(
               (file) => `${user.id}/${file.name}`
             );
-            console.log("Silinen eski dosyalar:", filesToDelete);
 
             const { error: deleteError } = await supabase.storage
               .from("avatars")

@@ -9,39 +9,7 @@ import CreateTaskModal from "@/components/project/CreateTaskModal";
 import TaskCard from "@/components/project/TaskCard";
 import TaskDetailPanel from "@/components/project/TaskDetailPanel";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  organization_id: string;
-  created_at: string;
-  created_by: string;
-}
-
-interface TaskAssignment {
-  user_id: string;
-  full_name: string;
-  assigned_at: string;
-  assigned_by: string;
-  avatar_url?: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: "todo" | "in_progress" | "done";
-  project_id: string;
-  created_at: string;
-  created_by: string;
-  assignments?: TaskAssignment[];
-}
-
-interface Organization {
-  id: string;
-  name: string;
-}
+import { Organization, Project, Task, TaskAssignment, Profile } from "@/types";
 
 export default function ProjectPage() {
   const params = useParams();
@@ -189,7 +157,6 @@ export default function ProjectPage() {
             !user?.id ||
             !task.assignments?.some((a) => a.user_id === user.id)
           ) {
-            console.log("Yetki yok, task'ları yeniden yükleniyor...");
             reloadTasks();
             return { success: false, error: "Bu işlem için yetkiniz yok" };
           }
@@ -387,7 +354,6 @@ export default function ProjectPage() {
     if (!user?.id || loading) return;
 
     const pollInterval = setInterval(() => {
-      console.log("🔄 Task verilerini güncelleniyor...");
       reloadTasks();
     }, 5000); // 5 saniye
 

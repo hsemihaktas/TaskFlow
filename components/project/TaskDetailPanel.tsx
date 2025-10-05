@@ -2,26 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-
-interface TaskAssignment {
-  user_id: string;
-  full_name: string;
-  assigned_at: string;
-  assigned_by: string;
-  avatar_url?: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: "todo" | "in_progress" | "done";
-  project_id: string;
-  created_at: string;
-  created_by: string;
-  updated_at?: string;
-  assignments?: TaskAssignment[];
-}
+import { Task, TaskAssignment } from "@/types";
 
 interface TaskDetailPanelProps {
   task: Task | null;
@@ -73,7 +54,6 @@ export default function TaskDetailPanel({
     loadTaskAssignments(task.id);
 
     const pollInterval = setInterval(() => {
-      console.log("📋 Assignment verilerini güncelleniyor...");
       loadTaskAssignments(task.id);
     }, 10000); // 10 saniye
 

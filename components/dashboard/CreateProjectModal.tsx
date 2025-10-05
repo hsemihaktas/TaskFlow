@@ -33,12 +33,6 @@ export default function CreateProjectModal({
     setLoading(true);
     setError("");
 
-    console.log("Proje form submit edildi:", {
-      name,
-      description,
-      selectedOrgId,
-    });
-
     if (!name.trim()) {
       setError("Proje adı gereklidir.");
       setLoading(false);
@@ -67,7 +61,7 @@ export default function CreateProjectModal({
 
   return (
     <div
-      className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+      className="fixed inset-0 bg-black/50 bg-opacity-50 overflow-y-auto h-full w-full z-50"
       onClick={handleBackdropClick}
     >
       <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">

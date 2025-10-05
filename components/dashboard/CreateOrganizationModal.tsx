@@ -19,10 +19,8 @@ export default function CreateOrganizationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Debug için
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    console.log("Name değişiyor:", value);
     setName(value);
   };
 
@@ -30,7 +28,6 @@ export default function CreateOrganizationModal({
     e: React.ChangeEvent<HTMLTextAreaElement>
   ) => {
     const value = e.target.value;
-    console.log("Description değişiyor:", value);
     setDescription(value);
   };
 
@@ -38,13 +35,6 @@ export default function CreateOrganizationModal({
     e.preventDefault();
     setLoading(true);
     setError("");
-
-    console.log(
-      "Form submit edildi - name:",
-      name,
-      "description:",
-      description
-    );
 
     if (!name.trim()) {
       setError("Organizasyon adı gereklidir.");

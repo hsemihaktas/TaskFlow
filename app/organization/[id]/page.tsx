@@ -8,40 +8,10 @@ import Navbar from "@/components/Navbar";
 import InviteMemberModal from "@/components/organization/InviteMemberModal";
 import MemberManagementModal from "@/components/dashboard/MemberManagementModal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { Organization, Project, Task, Membership, Profile } from "@/types";
 
-interface Organization {
-  id: string;
-  name: string;
-  created_at: string;
-  created_by: string;
-}
-
-interface Member {
-  id: string;
-  user_id: string;
-  role: string;
-  created_at: string;
-  profiles: {
-    full_name: string;
-    avatar_url: string;
-  };
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description?: string;
-  created_at: string;
-  created_by: string;
-}
-
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  project_id: string;
-  created_at: string;
+interface Member extends Membership {
+  profiles: Profile;
 }
 
 export default function OrganizationPage() {
@@ -50,7 +20,7 @@ export default function OrganizationPage() {
   const organizationId = params.id as string;
 
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -206,23 +176,26 @@ export default function OrganizationPage() {
       let userData: any = null;
 
       try {
-        // Kullanıcı arama işlemi başlatılıyor        // Önce profiles tablosundan email ile kontrol et
-        const { data: profileUser, error: profileError } = await supabase
+        // Önce profiles tablosundan email ile kontrol et - .single() kullanmayarak 406 hatasını önleyelim
+        const { data: profileUsers, error: profileError } = await supabase
           .from("profiles")
           .select("id, full_name, email")
-          .eq("email", normalizedEmail)
-          .single();
+          .eq("email", normalizedEmail);
 
-        if (profileUser && !profileError) {
+        if (profileError) {
+          // Gerçek bir sorgu hatası
+          throw profileError;
+        } else if (profileUsers && profileUsers.length > 0) {
+          // Kullanıcı bulundu
           userExists = true;
-          userData = profileUser;
-          console.log("✅ Kullanıcı sistemde kayıtlı:", userData.full_name);
+          userData = profileUsers[0];
         } else {
-          console.log(
-            "ℹ️ Kullanıcı sistemde kayıtlı değil, yeni davet oluşturuluyor"
-          );
+          // Kullanıcı bulunamadı - bu normal bir durum
+          userExists = false;
+          userData = null;
         }
       } catch (error) {
+        // Sadece gerçek hataları logla
         console.error("❌ Kullanıcı kontrol hatası:", error);
         userExists = false;
         userData = null;
@@ -230,8 +203,6 @@ export default function OrganizationPage() {
 
       // 2. Kullanıcı zaten organizasyonda üye mi kontrol et
       if (userExists && userData) {
-        console.log("Üyelik kontrol ediliyor...");
-
         try {
           const { data: memberships, error: membershipError } = await supabase
             .from("memberships")
@@ -243,9 +214,7 @@ export default function OrganizationPage() {
             memberships && memberships.length > 0 ? memberships[0] : null;
 
           if (membershipError) {
-            console.log("Memberships sorgu hatası:", membershipError);
           } else if (existingMembership) {
-            console.log("⚠️ Kullanıcı zaten organizasyonda üye");
             return {
               success: false,
               error: `${normalizedEmail} zaten bu organizasyonda ${
@@ -258,7 +227,7 @@ export default function OrganizationPage() {
             };
           }
         } catch (error) {
-          console.log("Üyelik kontrolünde hata, devam ediliyor:", error);
+          // Hata durumunda devam et
         }
       }
 
@@ -275,7 +244,7 @@ export default function OrganizationPage() {
           invitations && invitations.length > 0 ? invitations[0] : null;
 
         if (invitationError) {
-          console.log("Invitations sorgu hatası:", invitationError);
+          // Invitation kontrolünde hata
         } else if (existingInvitation) {
           // Davet süresi dolmuş mu kontrol et
           const now = new Date();
@@ -297,7 +266,7 @@ export default function OrganizationPage() {
           }
         }
       } catch (error) {
-        console.log("Davet kontrolünde hata, devam ediliyor:", error);
+        // Davet kontrol hatası
       }
 
       // 4. Yeni davet oluştur
@@ -317,42 +286,21 @@ export default function OrganizationPage() {
       }
 
       // 5. E-posta gönderme simulasyonu (gerçek projede SMTP servis kullanılmalı)
-      console.log("=== DAVETİYE E-POSTASI ===");
-      console.log(`Kime: ${normalizedEmail}`);
-      console.log(`Organizasyon: ${organization?.name}`);
-      console.log(`Rol: ${role === "admin" ? "Yönetici" : "Üye"}`);
-      console.log(`Davet Eden: ${profile?.full_name || user?.email}`);
-      console.log(
-        `Davet Linki: ${window.location.origin}/invitation/${invitation.token}`
-      );
-      console.log(
-        `Son Geçerlilik: ${new Date(invitation.expires_at).toLocaleString(
-          "tr-TR"
-        )}`
-      );
-      console.log("========================");
 
-      // 6. Başarı mesajı
-      const userStatus =
-        userExists && userData
-          ? `${
-              userData.full_name || normalizedEmail
-            } (${normalizedEmail}) sistemde kayıtlı kullanıcı, davet gönderildi.`
-          : `${normalizedEmail} henüz sistemde kayıtlı değil. Kayıt olması için davet gönderildi.`;
-
-      console.log("Davet başarıyla oluşturuldu:", invitation);
-      alert(
-        `✅ Davet başarıyla gönderildi!\n\n${userStatus}\n\nDavet 7 gün boyunca geçerli olacak.`
-      );
-
-      setShowInviteModal(false);
+      // 6. Başarı - davet linkini oluştur ve döndür
+      const inviteLink = `${window.location.origin}/invitation/${invitation.token}`;
 
       // Üye listesini yenile (eğer kullanıcı zaten kayıtlı ise)
       if (user?.id) {
         await loadOrganizationData(user.id);
       }
 
-      return { success: true };
+      return { 
+        success: true, 
+        inviteLink: inviteLink,
+        userExists: userExists,
+        userName: userData?.full_name || ""
+      };
     } catch (error: any) {
       console.error("Davet gönderme hatası:", error);
 
@@ -937,6 +885,7 @@ export default function OrganizationPage() {
         <InviteMemberModal
           onClose={() => setShowInviteModal(false)}
           onInvite={inviteMember}
+          organizationName={organization?.name}
         />
       )}
 
