@@ -762,8 +762,11 @@ export default function OrganizationPage() {
                       key={group.project.id}
                       className="border border-gray-200 rounded-lg overflow-hidden"
                     >
-                      {/* Proje Başlığı */}
-                      <div className="bg-gradient-to-r from-green-50 to-blue-50 px-4 py-3 border-b border-gray-200">
+                      {/* Proje Başlığı - Tıklanabilir */}
+                      <div 
+                        className="bg-gradient-to-r from-green-50 to-blue-50 px-4 py-3 border-b border-gray-200 cursor-pointer hover:from-green-100 hover:to-blue-100 transition-colors"
+                        onClick={() => router.push(`/project/${group.project.id}`)}
+                      >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
@@ -782,7 +785,7 @@ export default function OrganizationPage() {
                               </svg>
                             </div>
                             <div>
-                              <h3 className="text-lg font-semibold text-gray-900">
+                              <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors">
                                 {group.project.name}
                               </h3>
                               <p className="text-sm text-gray-600">
@@ -790,114 +793,31 @@ export default function OrganizationPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {new Date(
-                              group.project.created_at
-                            ).toLocaleDateString("tr-TR")}
+                          <div className="flex items-center space-x-2">
+                            <div className="text-sm text-gray-500">
+                              {new Date(
+                                group.project.created_at
+                              ).toLocaleDateString("tr-TR")}
+                            </div>
+                            <svg
+                              className="w-4 h-4 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5l7 7-7 7"
+                              />
+                            </svg>
                           </div>
                         </div>
                         {group.project.description && (
                           <p className="mt-2 text-sm text-gray-700">
                             {group.project.description}
                           </p>
-                        )}
-                      </div>
-
-                      {/* Görevler */}
-                      <div className="p-4">
-                        {group.tasks.length === 0 ? (
-                          <p className="text-center text-gray-500 py-4">
-                            Bu projede henüz görev yok
-                          </p>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {group.tasks.map((task) => (
-                              <div
-                                key={task.id}
-                                className="group bg-white border-2 border-gray-200 rounded-lg p-3 hover:border-purple-300 hover:shadow-md transition-all duration-200"
-                              >
-                                <div className="flex items-start justify-between mb-2">
-                                  <h5 className="font-medium text-gray-900 group-hover:text-purple-700 transition-colors">
-                                    {task.title}
-                                  </h5>
-                                  <div className="ml-2">
-                                    {task.status === "done" ? (
-                                      <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center">
-                                        <svg
-                                          className="w-3 h-3 text-green-600"
-                                          fill="currentColor"
-                                          viewBox="0 0 20 20"
-                                        >
-                                          <path
-                                            fillRule="evenodd"
-                                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                            clipRule="evenodd"
-                                          />
-                                        </svg>
-                                      </div>
-                                    ) : task.status === "in_progress" ? (
-                                      <div className="w-5 h-5 bg-yellow-100 rounded-full flex items-center justify-center">
-                                        <svg
-                                          className="w-3 h-3 text-yellow-600"
-                                          fill="currentColor"
-                                          viewBox="0 0 20 20"
-                                        >
-                                          <path
-                                            fillRule="evenodd"
-                                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                                            clipRule="evenodd"
-                                          />
-                                        </svg>
-                                      </div>
-                                    ) : (
-                                      <div className="w-5 h-5 bg-gray-100 rounded-full flex items-center justify-center">
-                                        <svg
-                                          className="w-3 h-3 text-gray-400"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          viewBox="0 0 24 24"
-                                        >
-                                          <path
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            strokeWidth={2}
-                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                          />
-                                        </svg>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <p className="text-xs text-gray-600 mb-3">
-                                  {task.description || "Açıklama yok"}
-                                </p>
-
-                                <div className="flex items-center justify-between">
-                                  <span
-                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                                      task.status === "done"
-                                        ? "bg-green-100 text-green-800"
-                                        : task.status === "in_progress"
-                                        ? "bg-yellow-100 text-yellow-800"
-                                        : "bg-gray-100 text-gray-800"
-                                    }`}
-                                  >
-                                    {task.status === "todo"
-                                      ? "Yapılacak"
-                                      : task.status === "in_progress"
-                                      ? "Devam Ediyor"
-                                      : "Tamamlandı"}
-                                  </span>
-                                  <span className="text-xs text-gray-400">
-                                    {new Date(
-                                      task.created_at
-                                    ).toLocaleDateString("tr-TR")}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
                         )}
                       </div>
                     </div>
