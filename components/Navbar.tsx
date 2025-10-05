@@ -133,11 +133,6 @@ export default function Navbar({ user, profile }: NavbarProps) {
                       {profile?.full_name || "Kullanıcı"}
                     </p>
                     <p className="text-xs text-gray-500">{user?.email}</p>
-                    {profile?.position && (
-                      <p className="text-xs text-blue-600 mt-1">
-                        {profile.position}
-                      </p>
-                    )}
                     {profile?.phone && (
                       <p className="text-xs text-gray-500">{profile.phone}</p>
                     )}
