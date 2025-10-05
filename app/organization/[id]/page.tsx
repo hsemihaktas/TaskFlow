@@ -7,6 +7,7 @@ import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import InviteMemberModal from "@/components/organization/InviteMemberModal";
 import MemberManagementModal from "@/components/dashboard/MemberManagementModal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface Organization {
   id: string;
@@ -59,6 +60,22 @@ export default function OrganizationPage() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [updatingMember, setUpdatingMember] = useState<string | null>(null);
+  const [deletingOrganization, setDeletingOrganization] = useState(false);
+
+  // Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: "danger" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "danger",
+  });
 
   // Organizasyon verilerini yükle
   const loadOrganizationData = async (userId: string) => {
@@ -419,6 +436,66 @@ export default function OrganizationPage() {
     return true;
   };
 
+  // Organization silme (sadece owner)
+  const deleteOrganization = async () => {
+    if (userRole !== "owner") {
+      alert("Sadece organizasyon sahibi organizasyonu silebilir.");
+      return;
+    }
+
+    // Confirm dialog göster
+    setConfirmDialog({
+      isOpen: true,
+      title: "Organizasyonu Sil",
+      message: `"${organization?.name}" organizasyonunu silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz ve tüm projeler, görevler ve veriler silinecektir.`,
+      type: "danger",
+      onConfirm: performDeleteOrganization,
+    });
+  };
+
+  // Gerçek silme işlemi
+  const performDeleteOrganization = async () => {
+    setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+    setDeletingOrganization(true);
+
+    try {
+      const { error } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", organizationId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Başarı mesajı için yeni dialog
+      setConfirmDialog({
+        isOpen: true,
+        title: "Başarılı",
+        message: "Organizasyon başarıyla silindi.",
+        type: "info",
+        onConfirm: () => {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+          router.push("/dashboard");
+        },
+      });
+    } catch (error: any) {
+      console.error("Organizasyon silme hatası:", error);
+
+      // Hata mesajı için dialog
+      setConfirmDialog({
+        isOpen: true,
+        title: "Hata",
+        message: `Organizasyon silinirken bir hata oluştu:\n${error.message}`,
+        type: "danger",
+        onConfirm: () =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+      });
+    } finally {
+      setDeletingOrganization(false);
+    }
+  };
+
   useEffect(() => {
     const getUser = async () => {
       const {
@@ -571,6 +648,30 @@ export default function OrganizationPage() {
                       />
                     </svg>
                     Üye Davet Et
+                  </button>
+                )}
+                {userRole === "owner" && (
+                  <button
+                    onClick={deleteOrganization}
+                    disabled={deletingOrganization}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                    {deletingOrganization
+                      ? "Siliniyor..."
+                      : "Organizasyonu Sil"}
                   </button>
                 )}
               </div>
@@ -763,9 +864,11 @@ export default function OrganizationPage() {
                       className="border border-gray-200 rounded-lg overflow-hidden"
                     >
                       {/* Proje Başlığı - Tıklanabilir */}
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-green-50 to-blue-50 px-4 py-3 border-b border-gray-200 cursor-pointer hover:from-green-100 hover:to-blue-100 transition-colors"
-                        onClick={() => router.push(`/project/${group.project.id}`)}
+                        onClick={() =>
+                          router.push(`/project/${group.project.id}`)
+                        }
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
@@ -848,6 +951,20 @@ export default function OrganizationPage() {
           updatingMember={updatingMember}
         />
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText="Sil"
+        cancelText="İptal"
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
+      />
     </div>
   );
 }

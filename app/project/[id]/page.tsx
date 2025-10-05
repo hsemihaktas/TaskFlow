@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import CreateTaskModal from "@/components/project/CreateTaskModal";
 import TaskCard from "@/components/project/TaskCard";
 import TaskDetailPanel from "@/components/project/TaskDetailPanel";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 interface Project {
   id: string;
@@ -57,6 +58,21 @@ export default function ProjectPage() {
   const [userRole, setUserRole] = useState<string>("");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
+
+  // Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: "danger" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "danger",
+  });
 
   // Görevleri duruma göre grupla
   const getTasksByStatus = (status: "todo" | "in_progress" | "done") => {
@@ -220,6 +236,66 @@ export default function ProjectPage() {
   // Yetki kontrolü
   const canManageTasks = () => {
     return userRole === "owner" || userRole === "admin";
+  };
+
+  // Görev silme fonksiyonu
+  const deleteTask = useCallback(
+    async (taskId: string, taskTitle: string) => {
+      if (!user?.id) return { success: false, error: "Kullanıcı bulunamadı" };
+
+      // Yetki kontrolü
+      if (!canManageTasks()) {
+        return { success: false, error: "Bu işlem için yetkiniz yok" };
+      }
+
+      // Confirm dialog göster
+      return new Promise<{ success: boolean; error?: string }>((resolve) => {
+        setConfirmDialog({
+          isOpen: true,
+          title: "Görevi Sil",
+          message: `"${taskTitle}" görevini silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz.`,
+          type: "danger",
+          onConfirm: async () => {
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            await performTaskDelete(taskId, resolve);
+          },
+        });
+      });
+    },
+    [user?.id, userRole, selectedTask]
+  );
+
+  // Gerçek silme işlemi
+  const performTaskDelete = async (
+    taskId: string,
+    resolve: (value: { success: boolean; error?: string }) => void
+  ) => {
+    try {
+      // Görevi sil - Cascade delete ile tüm ilgili veriler (assignments) silinir
+      const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Local state'den kaldır
+      setTasks((prevTasks) => prevTasks.filter((task) => task.id !== taskId));
+
+      // Task detail paneli açıksa ve silinen task ise kapat
+      if (selectedTask?.id === taskId) {
+        handleCloseTaskDetail();
+      }
+
+      resolve({ success: true });
+    } catch (error: any) {
+      console.error("Görev silme hatası:", error);
+      resolve({ success: false, error: error.message || "Bilinmeyen hata" });
+    }
+  };
+
+  // Görev silme (TaskCard'dan çağrılacak)
+  const handleDeleteTask = (taskId: string, taskTitle: string) => {
+    return deleteTask(taskId, taskTitle);
   };
 
   // Görev kartına tıklama
@@ -472,6 +548,7 @@ export default function ProjectPage() {
                     onTaskClick={handleTaskClick}
                     currentUserId={user?.id}
                     onRefresh={reloadTasks}
+                    onDelete={handleDeleteTask}
                   />
                 ))}
                 {getTasksByStatus("todo").length === 0 && (
@@ -526,6 +603,7 @@ export default function ProjectPage() {
                     onTaskClick={handleTaskClick}
                     currentUserId={user?.id}
                     onRefresh={reloadTasks}
+                    onDelete={handleDeleteTask}
                   />
                 ))}
                 {getTasksByStatus("in_progress").length === 0 && (
@@ -580,6 +658,7 @@ export default function ProjectPage() {
                     onTaskClick={handleTaskClick}
                     currentUserId={user?.id}
                     onRefresh={reloadTasks}
+                    onDelete={handleDeleteTask}
                   />
                 ))}
                 {getTasksByStatus("done").length === 0 && (
@@ -623,6 +702,20 @@ export default function ProjectPage() {
         canEdit={canManageTasks()}
         currentUserId={user?.id}
         userRole={userRole as "owner" | "admin" | "member"}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText="Sil"
+        cancelText="İptal"
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
       />
     </div>
   );

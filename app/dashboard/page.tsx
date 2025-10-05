@@ -7,6 +7,7 @@ import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import CreateOrganizationModal from "@/components/dashboard/CreateOrganizationModal";
 import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -18,6 +19,21 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showCreateOrgModal, setShowCreateOrgModal] = useState(false);
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+
+  // Confirm Dialog State
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type?: "danger" | "warning" | "info";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "danger",
+  });
 
   const router = useRouter();
 
@@ -239,6 +255,77 @@ export default function DashboardPage() {
     } catch (error: any) {
       console.error("Proje oluşturma hatası:", error);
       return { success: false, error: error.message || "Bilinmeyen hata" };
+    }
+  };
+
+  // Proje silme fonksiyonu
+  const deleteProject = async (projectId: string, projectName: string) => {
+    if (!user) return { success: false, error: "Kullanıcı bulunamadı" };
+
+    // Confirm dialog göster
+    return new Promise<{ success: boolean; error?: string }>((resolve) => {
+      setConfirmDialog({
+        isOpen: true,
+        title: "Projeyi Sil",
+        message: `"${projectName}" projesini silmek istediğinizden emin misiniz?\n\nBu işlem geri alınamaz ve projeye ait tüm görevler de silinecektir.`,
+        type: "danger",
+        onConfirm: async () => {
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+          await performProjectDelete(projectId, resolve);
+        },
+      });
+    });
+  };
+
+  // Gerçek silme işlemi
+  const performProjectDelete = async (
+    projectId: string,
+    resolve: (value: { success: boolean; error?: string }) => void
+  ) => {
+    setLoading(true);
+
+    try {
+      // Projeyi sil - Cascade delete ile tüm ilgili veriler silinir
+      const { error } = await supabase
+        .from("projects")
+        .delete()
+        .eq("id", projectId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Projeleri yeniden yükle
+      const { data: updatedProjects } = await supabase
+        .from("projects")
+        .select(
+          `
+          *,
+          organization:organizations(*)
+        `
+        )
+        .order("created_at", { ascending: false });
+
+      if (updatedProjects) {
+        setProjects(updatedProjects);
+      }
+
+      // Görevleri yeniden yükle
+      const { data: updatedTasks } = await supabase
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (updatedTasks) {
+        setTasks(updatedTasks);
+      }
+
+      resolve({ success: true });
+    } catch (error: any) {
+      console.error("Proje silme hatası:", error);
+      resolve({ success: false, error: error.message || "Bilinmeyen hata" });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -583,8 +670,46 @@ export default function DashboardPage() {
                                 }
                                 className="group relative bg-white border-2 border-gray-200 rounded-lg p-4 hover:border-green-300 hover:shadow-lg transition-all duration-200 cursor-pointer"
                               >
-                                {/* Proje İkonu */}
-                                <div className="absolute top-4 right-4">
+                                {/* Sağ Üst Butonlar */}
+                                <div className="absolute top-4 right-4 flex items-center space-x-2">
+                                  {/* Silme Butonu - Sadece admin ve owner görebilir */}
+                                  {(() => {
+                                    const membership = memberships.find(
+                                      (m) =>
+                                        m.organization_id ===
+                                        group.organization.id
+                                    );
+                                    return (
+                                      membership?.role === "admin" ||
+                                      membership?.role === "owner"
+                                    );
+                                  })() && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteProject(project.id, project.name);
+                                      }}
+                                      className="w-7 h-7 bg-red-50 hover:bg-red-100 rounded-lg flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100 z-10"
+                                      title="Projeyi Sil"
+                                      disabled={loading}
+                                    >
+                                      <svg
+                                        className="w-3.5 h-3.5 text-red-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                      </svg>
+                                    </button>
+                                  )}
+
+                                  {/* Proje İkonu */}
                                   <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
                                     <svg
                                       className="w-4 h-4 text-green-600"
@@ -693,6 +818,20 @@ export default function DashboardPage() {
           onCreate={createProject}
         />
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        confirmText="Sil"
+        cancelText="İptal"
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
+      />
     </div>
   );
 }

@@ -32,6 +32,10 @@ interface TaskCardProps {
   onTaskClick: (task: Task) => void;
   currentUserId?: string;
   onRefresh?: () => void;
+  onDelete?: (
+    taskId: string,
+    taskTitle: string
+  ) => Promise<{ success: boolean; error?: string }>;
 }
 
 export default function TaskCard({
@@ -41,6 +45,7 @@ export default function TaskCard({
   onTaskClick,
   currentUserId,
   onRefresh,
+  onDelete,
 }: TaskCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -212,7 +217,7 @@ export default function TaskCard({
       onDragEnd={handleDragEnd}
       onClick={handleCardClick}
       className={`
-        bg-white border-l-4 ${getStatusColor()} rounded-lg shadow-sm p-4 
+        group bg-white border-l-4 ${getStatusColor()} rounded-lg shadow-sm p-4 
         transition-all duration-200 cursor-pointer
         ${canDrag() ? "hover:shadow-md hover:scale-[1.02]" : ""}
         ${isDragging ? "opacity-50 scale-95" : ""}
@@ -220,12 +225,43 @@ export default function TaskCard({
         ${!canDrag() ? "cursor-default" : ""}
       `}
     >
-      {/* Üst Kısım - Başlık ve Durum İkonu */}
+      {/* Üst Kısım - Başlık, Silme Butonu ve Durum İkonu */}
       <div className="flex items-start justify-between mb-3">
-        <h4 className="text-sm font-semibold text-gray-900 leading-tight pr-2">
+        <h4 className="text-sm font-semibold text-gray-900 leading-tight pr-2 flex-1">
           {task.title}
         </h4>
-        <div className="flex-shrink-0">{getStatusIcon()}</div>
+
+        <div className="flex items-center space-x-1 flex-shrink-0">
+          {/* Silme Butonu - Sadece admin ve owner görebilir */}
+          {canEdit && onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(task.id, task.title);
+              }}
+              className="status-button w-5 h-5 bg-red-50 hover:bg-red-100 rounded flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+              title="Görevi Sil"
+              disabled={isUpdating}
+            >
+              <svg
+                className="w-3 h-3 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </button>
+          )}
+
+          {/* Durum İkonu */}
+          {getStatusIcon()}
+        </div>
       </div>
 
       {/* Açıklama */}
