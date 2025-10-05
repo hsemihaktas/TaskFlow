@@ -7,6 +7,7 @@ import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import CreateOrganizationModal from "@/components/dashboard/CreateOrganizationModal";
 import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
+import CreateTaskModal from "@/components/dashboard/CreateTaskModal";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -188,6 +189,47 @@ export default function DashboardPage() {
       return { success: true };
     } catch (error: any) {
       console.error("Proje oluşturma hatası:", error);
+      return { success: false, error: error.message || "Bilinmeyen hata" };
+    }
+  };
+
+  // Görev oluştur
+  const createTask = async (
+    title: string,
+    description: string,
+    projectId: string,
+    status: string
+  ) => {
+    try {
+      if (!user) return { success: false, error: "Kullanıcı bulunamadı" };
+
+      // Görevi oluştur
+      const { data: taskData, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: title.trim(),
+          description: description.trim() || null,
+          project_id: projectId,
+          status: status,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (taskError) {
+        throw taskError;
+      }
+
+      // Verileri yeniden yükle
+      if (organizations.length > 0) {
+        await loadProjectsAndTasks(organizations.map((org: any) => org.id));
+      }
+
+      setShowCreateTaskModal(false);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Görev oluşturma hatası:", error);
       return { success: false, error: error.message || "Bilinmeyen hata" };
     }
   };
@@ -546,6 +588,15 @@ export default function DashboardPage() {
           organizations={organizations}
           onClose={() => setShowCreateProjectModal(false)}
           onCreate={createProject}
+        />
+      )}
+
+      {/* Görev Oluştur Modalı */}
+      {showCreateTaskModal && (
+        <CreateTaskModal
+          projects={projects}
+          onClose={() => setShowCreateTaskModal(false)}
+          onCreate={createTask}
         />
       )}
     </div>
