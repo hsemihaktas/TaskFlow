@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import CreateOrganizationModal from "@/components/dashboard/CreateOrganizationModal";
+import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -148,6 +149,45 @@ export default function DashboardPage() {
       return { success: true };
     } catch (error: any) {
       console.error("Organizasyon oluşturma hatası:", error);
+      return { success: false, error: error.message || "Bilinmeyen hata" };
+    }
+  };
+
+  // Proje oluştur
+  const createProject = async (
+    name: string,
+    description: string,
+    organizationId: string
+  ) => {
+    try {
+      if (!user) return { success: false, error: "Kullanıcı bulunamadı" };
+
+      // Projeyi oluştur
+      const { data: projectData, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          name: name.trim(),
+          description: description.trim() || null,
+          organization_id: organizationId,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (projectError) {
+        throw projectError;
+      }
+
+      // Verileri yeniden yükle
+      if (organizations.length > 0) {
+        await loadProjectsAndTasks(organizations.map((org: any) => org.id));
+      }
+
+      setShowCreateProjectModal(false);
+
+      return { success: true };
+    } catch (error: any) {
+      console.error("Proje oluşturma hatası:", error);
       return { success: false, error: error.message || "Bilinmeyen hata" };
     }
   };
@@ -497,6 +537,15 @@ export default function DashboardPage() {
         <CreateOrganizationModal
           onClose={() => setShowCreateOrgModal(false)}
           onCreate={createOrganization}
+        />
+      )}
+
+      {/* Proje Oluştur Modalı */}
+      {showCreateProjectModal && (
+        <CreateProjectModal
+          organizations={organizations}
+          onClose={() => setShowCreateProjectModal(false)}
+          onCreate={createProject}
         />
       )}
     </div>
