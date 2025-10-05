@@ -452,15 +452,53 @@ export default function DashboardPage() {
                   {organizations.map((org) => (
                     <div
                       key={org.id}
-                      className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                      onClick={() => router.push(`/organization/${org.id}`)}
+                      className="group border-2 border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-lg transition-all duration-200 cursor-pointer"
                     >
-                      <h3 className="font-semibold text-gray-900">
-                        {org.name}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        Oluşturuldu:{" "}
-                        {new Date(org.created_at).toLocaleDateString("tr-TR")}
-                      </p>
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
+                          <svg
+                            className="w-5 h-5 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H9m0 0H5m4 0v-6a2 2 0 012-2h2a2 2 0 012 2v6"
+                            />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                            {org.name}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            Oluşturuldu:{" "}
+                            {new Date(org.created_at).toLocaleDateString(
+                              "tr-TR"
+                            )}
+                          </p>
+                        </div>
+                        <svg
+                          className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      </div>
+
+                      {/* Hover Efekti */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none"></div>
                     </div>
                   ))}
                 </div>
