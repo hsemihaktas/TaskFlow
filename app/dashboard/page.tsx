@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
+import Navbar from "@/components/Navbar";
 
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -32,8 +33,15 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .single();
 
-      if (profile) {
+      if (error && error.code !== "PGRST116") {
+        console.error("Profil getirilirken hata:", error);
+        // Hata varsa boş profil oluştur
+        setProfile({ id: user.id, full_name: "", avatar_url: "" });
+      } else if (profile) {
         setProfile(profile);
+      } else {
+        // Profil yoksa boş profil oluştur
+        setProfile({ id: user.id, full_name: "", avatar_url: "" });
       }
 
       setLoading(false);
@@ -53,11 +61,6 @@ export default function DashboardPage() {
     return () => subscription.unsubscribe();
   }, [router]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -71,26 +74,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold">TaskFlow</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-gray-700">
-                Hoş geldin, {profile?.full_name || user?.email}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-              >
-                Çıkış Yap
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar user={user} profile={profile} />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
