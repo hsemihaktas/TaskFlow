@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import InviteMemberModal from "@/components/organization/InviteMemberModal";
 import MemberManagementModal from "@/components/dashboard/MemberManagementModal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
 import { Organization, Project, Task, Membership, Profile } from "@/types";
 
 interface Member extends Membership {
@@ -29,6 +30,38 @@ export default function OrganizationPage() {
   const [userRole, setUserRole] = useState<string>("");
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false);
+  // Proje oluştur fonksiyonu
+  const createProject = async (
+    name: string,
+    description: string,
+    organizationId: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (!user) return { success: false, error: "Kullanıcı bulunamadı" };
+      const { data: projectData, error: projectError } = await supabase
+        .from("projects")
+        .insert({
+          name: name.trim(),
+          description: description.trim() || null,
+          organization_id: organizationId,
+          created_by: user.id,
+        })
+        .select()
+        .single();
+      if (projectError) throw projectError;
+      // Projeleri yeniden yükle
+      await loadOrganizationData(user.id);
+      setShowCreateProjectModal(false);
+      return { success: true };
+    } catch (error) {
+      console.error("Proje oluşturma hatası:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      };
+    }
+  };
   const [updatingMember, setUpdatingMember] = useState<string | null>(null);
   const [deletingOrganization, setDeletingOrganization] = useState(false);
 
@@ -606,6 +639,27 @@ export default function OrganizationPage() {
                     Üye Davet Et
                   </button>
                 )}
+                {canManageProjects() && (
+                  <button
+                    onClick={() => setShowCreateProjectModal(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    Proje Ekle
+                  </button>
+                )}
                 {userRole === "owner" && (
                   <button
                     onClick={deleteOrganization}
@@ -887,6 +941,17 @@ export default function OrganizationPage() {
           </div>
         </div>
       </main>
+
+      {/* Proje Oluştur Modalı */}
+      {showCreateProjectModal && (
+        <CreateProjectModal
+          organizations={[
+            { id: organizationId, name: organization?.name || "" },
+          ]}
+          onClose={() => setShowCreateProjectModal(false)}
+          onCreate={createProject}
+        />
+      )}
 
       {/* Üye Davet Et Modalı */}
       {showInviteModal && (
