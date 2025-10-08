@@ -10,6 +10,10 @@ import CreateProjectModal from "@/components/dashboard/CreateProjectModal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Profile, Organization, Project, Task, Membership } from "@/types";
 
+type MembershipWithOrg = {
+  organizations: Organization | Organization[] | null;
+};
+
 export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -134,9 +138,11 @@ export default function DashboardPage() {
         // Hata durumunda boş array set et
         setOrganizations([]);
       } else {
-        const organizations = (userOrgs
-          ?.map((item: any) => item.organizations)
-          .flat() || []) as Organization[];
+        const organizations =
+          (userOrgs as MembershipWithOrg[])
+            ?.map((item) => item.organizations)
+            .flat()
+            .filter((org): org is Organization => org !== null) || [];
         setOrganizations(organizations);
 
         // Eğer organizasyon varsa, projelerini de getir

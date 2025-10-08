@@ -34,6 +34,16 @@ export default function TaskDetailPanel({
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
 
+  type TaskAssignmentResponse = {
+    assigned_to: string;
+    assigned_at: string;
+    assigned_by: string;
+    profiles: {
+      full_name?: string;
+      avatar_url?: string;
+    } | null;
+  };
+
   // Task değiştiğinde form verilerini güncelle
   useEffect(() => {
     if (task) {
@@ -101,15 +111,15 @@ export default function TaskDetailPanel({
         .eq("task_id", taskId);
 
       if (!error && data) {
-        const formattedAssignments: TaskAssignment[] = data.map(
-          (item: any) => ({
-            user_id: item.assigned_to,
-            full_name: item.profiles?.full_name || "Bilinmeyen Kullanıcı",
-            assigned_at: item.assigned_at,
-            assigned_by: item.assigned_by,
-            avatar_url: item.profiles?.avatar_url || null,
-          })
-        );
+        const formattedAssignments: TaskAssignment[] = (
+          data as TaskAssignmentResponse[]
+        ).map((item) => ({
+          user_id: item.assigned_to,
+          full_name: item.profiles?.full_name || "Bilinmeyen Kullanıcı",
+          assigned_at: item.assigned_at,
+          assigned_by: item.assigned_by,
+          avatar_url: item.profiles?.avatar_url ?? undefined,
+        }));
         setAssignments(formattedAssignments);
         return formattedAssignments;
       }
@@ -183,9 +193,12 @@ export default function TaskDetailPanel({
 
       // Parent component'e güncel assignments bilgisini gönder
       onTaskUpdate(task.id, { assignments: updatedAssignments });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Görev atama hatası:", error);
-      if (error.code === "23505") {
+      if (
+        error instanceof Error &&
+        (error as { code?: string }).code === "23505"
+      ) {
         // Unique constraint violation
         alert("Bu göreve zaten atanmışsınız.");
       } else {

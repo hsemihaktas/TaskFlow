@@ -165,9 +165,12 @@ export default function InvitationPage() {
         `🎉 Tebrikler! ${invitation.organizations.name} organizasyonuna başarıyla katıldınız!`
       );
       router.push(`/organization/${invitation.organization_id}`);
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
       console.error("Davet kabul etme hatası:", error);
-      setError("Davet kabul edilirken bir hata oluştu: " + error.message);
+      setError(
+        "Davet kabul edilirken bir hata oluştu: " +
+          (error instanceof Error ? error.message : "Bilinmeyen hata")
+      );
     } finally {
       setAccepting(false);
     }

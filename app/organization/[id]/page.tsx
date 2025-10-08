@@ -173,7 +173,8 @@ export default function OrganizationPage() {
       // Email ile kullanıcı kontrolü
 
       let userExists = false;
-      let userData: any = null;
+      let userData: { id: string; full_name: string; email: string } | null =
+        null;
 
       try {
         // Önce profiles tablosundan email ile kontrol et - .single() kullanmayarak 406 hatasını önleyelim
@@ -295,21 +296,26 @@ export default function OrganizationPage() {
         await loadOrganizationData(user.id);
       }
 
-      return { 
-        success: true, 
+      return {
+        success: true,
         inviteLink: inviteLink,
         userExists: userExists,
-        userName: userData?.full_name || ""
+        userName: userData?.full_name || "",
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Davet gönderme hatası:", error);
 
       let errorMessage = "Davet gönderilirken bir hata oluştu.";
 
-      if (error.code === "23505") {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "23505"
+      ) {
         // Unique constraint violation
         errorMessage = "Bu e-posta adresine zaten bir davet gönderilmiş.";
-      } else if (error.message) {
+      } else if (error instanceof Error && error.message) {
         errorMessage = error.message;
       }
 
@@ -427,14 +433,16 @@ export default function OrganizationPage() {
           router.push("/dashboard");
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Organizasyon silme hatası:", error);
 
       // Hata mesajı için dialog
       setConfirmDialog({
         isOpen: true,
         title: "Hata",
-        message: `Organizasyon silinirken bir hata oluştu:\n${error.message}`,
+        message: `Organizasyon silinirken bir hata oluştu:\n${
+          error instanceof Error ? error.message : "Bilinmeyen hata"
+        }`,
         type: "danger",
         onConfirm: () =>
           setConfirmDialog((prev) => ({ ...prev, isOpen: false })),

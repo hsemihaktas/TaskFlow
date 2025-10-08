@@ -5,10 +5,12 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
+import { Profile } from "@/types";
+import { create } from "domain";
 
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -69,6 +71,7 @@ export default function SettingsPage() {
           phone: "",
           position: "",
           avatar_url: "",
+          created_at: "",
         };
         setProfile(emptyProfile);
         setFullName("");
@@ -84,7 +87,12 @@ export default function SettingsPage() {
         setAvatarUrl(profile.avatar_url || "");
       } else {
         // Profil yoksa boş profil oluştur
-        const emptyProfile = { id: user.id, full_name: "", avatar_url: "" };
+        const emptyProfile = {
+          id: user.id,
+          full_name: "",
+          avatar_url: "",
+          created_at: "",
+        };
         setProfile(emptyProfile);
         if (user?.email) {
           const emailUsername = user.email.split("@")[0];
@@ -220,8 +228,11 @@ export default function SettingsPage() {
       setMessage(
         "Resim başarıyla yüklendi! Profili güncellemek için 'Değişiklikleri Kaydet' butonuna basın."
       );
-    } catch (error: any) {
-      setError("Resim yüklenirken hata oluştu: " + error.message);
+    } catch (error: unknown) {
+      setError(
+        "Resim yüklenirken hata oluştu: " +
+          (error instanceof Error ? error.message : "Bilinmeyen hata")
+      );
     } finally {
       setUploading(false);
     }
@@ -276,12 +287,19 @@ export default function SettingsPage() {
       setMessage("Profil başarıyla güncellendi!");
 
       // Profil verisini güncelle
-      setProfile({ ...profile, ...updates });
+      setProfile({
+        ...profile,
+        ...updates,
+        created_at: profile?.created_at ?? "",
+      });
 
       // Mesajı 3 saniye sonra temizle
       setTimeout(() => setMessage(""), 3000);
-    } catch (error: any) {
-      setError("Profil güncellenirken hata oluştu: " + error.message);
+    } catch (error: unknown) {
+      setError(
+        "Profil güncellenirken hata oluştu: " +
+          (error instanceof Error ? error.message : "Bilinmeyen hata")
+      );
     } finally {
       setSaving(false);
     }

@@ -17,7 +17,7 @@ export default function ProjectPage() {
   const projectId = params.id as string;
 
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [project, setProject] = useState<Project | null>(null);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -138,9 +138,12 @@ export default function ProjectPage() {
 
       setShowCreateTaskModal(false);
       return { success: true };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Görev oluşturma hatası:", error);
-      return { success: false, error: error.message || "Bilinmeyen hata" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      };
     }
   };
 
@@ -179,13 +182,22 @@ export default function ProjectPage() {
         );
 
         return { success: true };
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Görev durumu güncellenirken hata:", error);
         console.error("Error details:", {
-          message: error?.message,
-          code: error?.code,
-          details: error?.details,
-          hint: error?.hint,
+          message: error instanceof Error ? error.message : undefined,
+          code:
+            error && typeof error === "object" && "code" in error
+              ? error.code
+              : undefined,
+          details:
+            error && typeof error === "object" && "details" in error
+              ? error.details
+              : undefined,
+          hint:
+            error && typeof error === "object" && "hint" in error
+              ? error.hint
+              : undefined,
         });
 
         // Task'ları yeniden yükle
@@ -193,7 +205,10 @@ export default function ProjectPage() {
 
         return {
           success: false,
-          error: error?.message || "Görev güncellenirken bir hata oluştu",
+          error:
+            error instanceof Error
+              ? error.message
+              : "Görev güncellenirken bir hata oluştu",
         };
       }
     },
@@ -254,9 +269,12 @@ export default function ProjectPage() {
       }
 
       resolve({ success: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Görev silme hatası:", error);
-      resolve({ success: false, error: error.message || "Bilinmeyen hata" });
+      resolve({
+        success: false,
+        error: error instanceof Error ? error.message : "Bilinmeyen hata",
+      });
     }
   };
 

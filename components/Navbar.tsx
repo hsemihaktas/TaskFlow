@@ -4,10 +4,11 @@ import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { User } from "@supabase/supabase-js";
+import { Profile } from "@/types";
 
 interface NavbarProps {
   user: User | null;
-  profile: any;
+  profile: Profile | null;
 }
 
 export default function Navbar({ user, profile }: NavbarProps) {

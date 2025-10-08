@@ -40,8 +40,11 @@ export default function CreateTaskModal({
       } else {
         setError(result.error || "Görev oluşturulurken bir hata oluştu.");
       }
-    } catch (error: any) {
-      setError(error.message || "Beklenmeyen bir hata oluştu.");
+    } catch (error: unknown) {
+      setError(
+        "Görev oluşturulurken bir hata oluştu: " +
+          (error instanceof Error ? error.message : "Bilinmeyen hata")
+      );
     } finally {
       setLoading(false);
     }
