@@ -506,7 +506,7 @@ export default function OrganizationPage() {
             onClick={() => router.push("/dashboard")}
             className="text-blue-600 hover:text-blue-800"
           >
-            Dashboard'a Dön
+            Dashboard&#39;a Dön
           </button>
         </div>
       </div>
@@ -583,7 +583,7 @@ export default function OrganizationPage() {
                       d="M10 19l-7-7m0 0l7-7m-7 7h18"
                     />
                   </svg>
-                  Dashboard'a Dön
+                  Dashboard&#39;a Dön
                 </button>
                 {canInviteMembers() && (
                   <button

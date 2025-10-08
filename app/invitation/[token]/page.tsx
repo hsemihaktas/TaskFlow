@@ -240,7 +240,7 @@ export default function InvitationPage() {
                 onClick={() => router.push("/dashboard")}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
               >
-                Dashboard'a Git
+                Dashboard&#39;a Git
               </button>
               <button
                 onClick={() => router.push("/login")}
