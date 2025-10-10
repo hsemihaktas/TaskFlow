@@ -72,7 +72,19 @@ export default function Navbar({ user, profile }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <h1 className="text-xl font-semibold text-gray-900">TaskFlow</h1>
+            <button
+              type="button"
+              onClick={() => router.push("/dashboard")}
+              className="text-xl font-semibold text-gray-900 focus:outline-none hover:text-blue-600 transition-colors"
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+              }}
+            >
+              TaskFlow
+            </button>
           </div>
 
           <div className="flex items-center">
