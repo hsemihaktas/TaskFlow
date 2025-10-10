@@ -197,6 +197,34 @@ export default function OrganizationPage() {
     return userRole === "owner" || userRole === "admin";
   };
 
+  // Organizasyondan çık fonksiyonu
+  const leaveOrganization = async () => {
+    setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from("memberships")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("organization_id", organizationId);
+      if (error) throw error;
+      router.push("/dashboard");
+    } catch (err) {
+      setConfirmDialog({
+        isOpen: true,
+        title: "Hata",
+        message: `Organizasyondan çıkarken bir hata oluştu:\n${
+          err instanceof Error ? err.message : "Bilinmeyen hata"
+        }`,
+
+        type: "danger",
+
+        onConfirm: () =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+      });
+    }
+  };
+
   // Üye davet et
   const inviteMember = async (email: string, role: string) => {
     try {
@@ -684,6 +712,35 @@ export default function OrganizationPage() {
                       : "Organizasyonu Sil"}
                   </button>
                 )}
+                {(userRole === "admin" || userRole === "member") && (
+                  <button
+                    onClick={() =>
+                      setConfirmDialog({
+                        isOpen: true,
+                        title: "Organizasyondan Çık",
+                        message: `Bu organizasyondan çıkmak istediğinizden emin misiniz?\n\nTüm yetkileriniz ve erişiminiz kaldırılacak.`,
+                        type: "danger",
+                        onConfirm: leaveOrganization,
+                      })
+                    }
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-500 hover:bg-red-600"
+                  >
+                    <svg
+                      className="w-4 h-4 mr-2"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                    Organizasyondan Çık
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -980,7 +1037,9 @@ export default function OrganizationPage() {
         title={confirmDialog.title}
         message={confirmDialog.message}
         type={confirmDialog.type}
-        confirmText="Sil"
+        confirmText={
+          confirmDialog.title === "Organizasyondan Çık" ? "Çık" : "Sil"
+        }
         cancelText="İptal"
         onConfirm={confirmDialog.onConfirm}
         onCancel={() =>

@@ -13,6 +13,7 @@ interface Invitation {
   invited_by: string;
   status: string;
   expires_at: string;
+  token: string;
   organizations: {
     name: string;
   };
@@ -105,19 +106,54 @@ export default function InvitationPage() {
   // Daveti kabul et
   const acceptInvitation = async () => {
     if (!invitation || !user) return;
-
     setAccepting(true);
 
     try {
-      // 1. Kullanıcı zaten üye mi kontrol et
-      const { data: memberships } = await supabase
-        .from("memberships")
-        .select("id")
-        .eq("organization_id", invitation.organization_id)
-        .eq("user_id", user.id);
+      // 1. Bu spesifik token'ı kontrol et
+      const { data: freshInvitation, error: freshError } = await supabase
+        .from("invitations")
+        .select("id, status, email, organization_id, role, token")
+        .eq("token", token)
+        .maybeSingle();
 
-      const existingMembership =
-        memberships && memberships.length > 0 ? memberships[0] : null;
+      if (freshError) {
+        console.error("Fresh invitation error:", freshError);
+        setError("Davet kontrol edilirken hata oluştu.");
+        setAccepting(false);
+        return;
+      }
+
+      if (!freshInvitation) {
+        setError("Bu davet bulunamadı.");
+        setAccepting(false);
+        return;
+      }
+
+      // Bu token zaten kullanılmış veya expired mı?
+      if (freshInvitation.status !== "pending") {
+        if (freshInvitation.status === "used") {
+          setError("Bu davet linki zaten kullanılmış.");
+        } else if (freshInvitation.status === "expired") {
+          setError("Bu davet linkinin süresi dolmuş.");
+        } else {
+          setError("Bu davet linki artık geçerli değil.");
+        }
+        setAccepting(false);
+        return;
+      }
+
+      // 2. Kullanıcı zaten bu organizasyona üye mi kontrol et
+      const { data: existingMembership, error: membershipCheckError } =
+        await supabase
+          .from("memberships")
+          .select("id")
+          .eq("organization_id", freshInvitation.organization_id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+      if (membershipCheckError) {
+        console.error("Membership check error:", membershipCheckError);
+      }
 
       if (existingMembership) {
         setError("Bu organizasyona zaten üyesiniz.");
@@ -125,46 +161,40 @@ export default function InvitationPage() {
         return;
       }
 
-      // 2. Kullanıcının e-postası davet edilen e-posta ile eşleşiyor mu
-      if (user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+      // 3. Kullanıcının e-postası davet edilen e-posta ile eşleşiyor mu
+      if (user.email?.toLowerCase() !== freshInvitation.email.toLowerCase()) {
         setError(
-          `Bu davet ${invitation.email} e-posta adresi içindir. Lütfen doğru hesapla giriş yapın.`
+          `Bu davet ${freshInvitation.email} e-posta adresi içindir. Lütfen doğru hesapla giriş yapın.`
         );
         setAccepting(false);
         return;
       }
 
-      // 3. Üyelik oluştur
-      const { error: membershipError } = await supabase
-        .from("memberships")
-        .insert({
+      // 4. RPC function ile daveti kabul et (RLS bypass)
+      const { data: acceptResult, error: acceptError } = await supabase.rpc(
+        "accept_invitation",
+        {
+          invitation_token: token,
           user_id: user.id,
-          organization_id: invitation.organization_id,
-          role: invitation.role,
-        });
+        }
+      );
 
-      if (membershipError) {
-        throw membershipError;
+      if (acceptError) {
+        console.error("Accept invitation RPC error:", acceptError);
+        throw new Error(`Davet kabul edilemedi: ${acceptError.message}`);
       }
 
-      // 4. Daveti kabul edildi olarak işaretle
-      const { error: updateError } = await supabase
-        .from("invitations")
-        .update({
-          status: "accepted",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", invitation.id);
-
-      if (updateError) {
-        console.error("Davet güncelleme hatası:", updateError);
+      if (!acceptResult || !acceptResult.success) {
+        throw new Error(
+          acceptResult?.message || "Davet kabul edilirken bir sorun oluştu"
+        );
       }
 
       // 5. Organizasyon sayfasına yönlendir
       alert(
         `🎉 Tebrikler! ${invitation.organizations.name} organizasyonuna başarıyla katıldınız!`
       );
-      router.push(`/organization/${invitation.organization_id}`);
+      router.push(`/organization/${freshInvitation.organization_id}`);
     } catch (error: Error | unknown) {
       console.error("Davet kabul etme hatası:", error);
       setError(

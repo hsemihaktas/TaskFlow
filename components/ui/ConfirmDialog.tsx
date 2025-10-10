@@ -6,8 +6,8 @@ interface ConfirmDialogProps {
   isOpen: boolean;
   title: string;
   message: string;
-  confirmText?: string;
-  cancelText?: string;
+  confirmText: string;
+  cancelText: string;
   onConfirm: () => void;
   onCancel: () => void;
   type?: "danger" | "warning" | "info";
@@ -17,8 +17,8 @@ export default function ConfirmDialog({
   isOpen,
   title,
   message,
-  confirmText = "Onayla",
-  cancelText = "İptal",
+  confirmText,
+  cancelText,
   onConfirm,
   onCancel,
   type = "danger",
