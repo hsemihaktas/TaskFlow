@@ -1028,6 +1028,47 @@ export default function OrganizationPage() {
           onClose={() => setShowMembersModal(false)}
           onUpdateRole={updateMemberRole}
           updatingMember={updatingMember}
+          onRemoveMember={async (memberId: string) => {
+            // Sadece owner ve admin çıkarabilir
+            if (userRole !== "owner" && userRole !== "admin") return;
+            // Kendi kendini çıkaramaz
+            const targetMember = members.find((m) => m.id === memberId);
+            if (!targetMember || targetMember.user_id === user?.id) return;
+            // Admin, owner'ı çıkaramaz
+            if (userRole === "admin" && targetMember.role === "owner") return;
+            // Admin, başka admin'i çıkaramaz
+            if (userRole === "admin" && targetMember.role === "admin") return;
+            setConfirmDialog({
+              isOpen: true,
+              title: "Üyeyi Çıkar",
+              message: `${
+                targetMember.profiles?.full_name || "Kullanıcı"
+              } adlı üyeyi organizasyondan çıkarmak istediğinizden emin misiniz?`,
+              type: "danger",
+              onConfirm: async () => {
+                setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+                try {
+                  const { error } = await supabase
+                    .from("memberships")
+                    .delete()
+                    .eq("id", memberId);
+                  if (error) throw error;
+                  if (user?.id) await loadOrganizationData(user.id);
+                } catch (err) {
+                  setConfirmDialog({
+                    isOpen: true,
+                    title: "Hata",
+                    message: `Üye çıkarılırken bir hata oluştu:\n${
+                      err instanceof Error ? err.message : "Bilinmeyen hata"
+                    }`,
+                    type: "danger",
+                    onConfirm: () =>
+                      setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+                  });
+                }
+              },
+            });
+          }}
         />
       )}
 
@@ -1038,7 +1079,11 @@ export default function OrganizationPage() {
         message={confirmDialog.message}
         type={confirmDialog.type}
         confirmText={
-          confirmDialog.title === "Organizasyondan Çık" ? "Çık" : "Sil"
+          confirmDialog.title === "Üyeyi Çıkar"
+            ? "Çıkar"
+            : confirmDialog.title === "Organizasyondan Çık"
+            ? "Çık"
+            : "Sil"
         }
         cancelText="İptal"
         onConfirm={confirmDialog.onConfirm}

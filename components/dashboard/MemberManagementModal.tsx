@@ -19,6 +19,7 @@ interface MemberManagementModalProps {
   onClose: () => void;
   onUpdateRole: (memberId: string, newRole: string) => void;
   updatingMember: string | null;
+  onRemoveMember?: (memberId: string) => void;
 }
 
 export default function MemberManagementModal({
@@ -28,6 +29,7 @@ export default function MemberManagementModal({
   onClose,
   onUpdateRole,
   updatingMember,
+  onRemoveMember,
 }: MemberManagementModalProps) {
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
 
@@ -168,10 +170,10 @@ export default function MemberManagementModal({
                     </div>
                   </div>
 
-                  {/* Rol Değiştirme */}
+                  {/* Rol Değiştirme ve Çıkar Butonu */}
                   <div className="flex items-center space-x-2">
                     {canUpdateRole(member) && (
-                      <div className="relative">
+                      <div className="relative flex items-center space-x-2">
                         <button
                           onClick={() =>
                             setExpandedMember(
@@ -208,6 +210,17 @@ export default function MemberManagementModal({
                             ))}
                           </div>
                         )}
+                        {/* Çıkar Butonu: owner ve admin görebilir, kendi kendini çıkaramaz */}
+                        {onRemoveMember &&
+                          currentUserRole !== "member" &&
+                          member.user_id !== currentUserId && (
+                            <button
+                              onClick={() => onRemoveMember(member.id)}
+                              className="px-3 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded-md transition-colors ml-2"
+                            >
+                              Çıkar
+                            </button>
+                          )}
                       </div>
                     )}
 
